@@ -45,16 +45,13 @@ resource "aws_api_gateway_rest_api" "restAPIs" {
   }
 }
 
-
 resource "aws_api_gateway_resource" "health-api" {
   parent_id   = aws_api_gateway_rest_api.restAPIs.root_resource_id
   rest_api_id = aws_api_gateway_rest_api.restAPIs.id
   path_part   = "health"
 }
 
-
 #Creating an API to confirm health of application
-
 resource "aws_api_gateway_method" "gethealth" {
   rest_api_id   = aws_api_gateway_rest_api.restAPIs.id
   resource_id   = aws_api_gateway_resource.health-api.id
@@ -96,7 +93,6 @@ resource "aws_api_gateway_integration_response" "intResponse" {
   response_templates = {
     "application/json" = ""
   }
-
 }
 
 resource "aws_api_gateway_deployment" "example" {
