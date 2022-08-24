@@ -111,7 +111,7 @@ resource "aws_api_gateway_deployment" "example" {
 resource "aws_api_gateway_stage" "example" {
   deployment_id = aws_api_gateway_deployment.example.id
   rest_api_id   = aws_api_gateway_rest_api.restAPIs.id
-  stage_name    = "test"
+  stage_name    = var.stage-name
   description   = "2nd api test"
   tags = {
     "IaC"         = "true"

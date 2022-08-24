@@ -19,3 +19,7 @@ variable "api-name" {
   type    = string
   default = "rest-api-product-inventory-app3"
 }
+variable "stage-name" {
+  type    = string
+  default = "dev"
+}
