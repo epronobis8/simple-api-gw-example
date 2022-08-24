@@ -45,22 +45,35 @@ resource "aws_api_gateway_rest_api" "restAPIs" {
   }
 }
 
-
 resource "aws_api_gateway_resource" "health-api" {
   parent_id   = aws_api_gateway_rest_api.restAPIs.root_resource_id
   rest_api_id = aws_api_gateway_rest_api.restAPIs.id
   path_part   = "health"
 }
 
+#added for second api - can delete.
+resource "aws_api_gateway_resource" "product-apis" {
+  parent_id   = aws_api_gateway_rest_api.restAPIs.root_resource_id
+  rest_api_id = aws_api_gateway_rest_api.restAPIs.id
+  path_part   = "product"
+}
 
 #Creating an API to confirm health of application
-
 resource "aws_api_gateway_method" "gethealth" {
   rest_api_id   = aws_api_gateway_rest_api.restAPIs.id
   resource_id   = aws_api_gateway_resource.health-api.id
   http_method   = "GET"
   authorization = "NONE"
   #api_key_required = true
+}
+
+#added for second api - can delete.
+resource "aws_api_gateway_method" "get-product" {
+  rest_api_id   = aws_api_gateway_rest_api.restAPIs.id
+  resource_id   = aws_api_gateway_resource.product-apis.id
+  http_method   = "ANY"
+  authorization = "NONE"
+  #same resource ID as get, post, update, delete
 }
 
 resource "aws_api_gateway_integration" "integration-get-health" {
@@ -75,6 +88,28 @@ resource "aws_api_gateway_integration" "integration-get-health" {
   }
 }
 
+resource "aws_api_gateway_integration" "integration-get-product" {
+  rest_api_id             = aws_api_gateway_rest_api.restAPIs.id
+  resource_id             = aws_api_gateway_resource.product-apis.id
+  http_method             = aws_api_gateway_method.get-product.http_method
+  integration_http_method = "POST"
+  type                    = "AWS_PROXY"
+  uri                     = aws_lambda_function.lambda.invoke_arn
+  request_templates = {
+    "application/json" = ""
+  }
+}
+#added for second api - can delete
+resource "aws_api_gateway_method_response" "get-prod-response" {
+  rest_api_id = aws_api_gateway_rest_api.restAPIs.id
+  resource_id = aws_api_gateway_resource.product-apis.id
+  http_method = aws_api_gateway_method.get-product.http_method
+  status_code = "200"
+
+  response_models = {
+    "application/json" = "Empty"
+  }
+}
 #response to return when the API is sucessful. Need to map to all other APIs
 resource "aws_api_gateway_method_response" "health-api-response" {
   rest_api_id = aws_api_gateway_rest_api.restAPIs.id
@@ -96,7 +131,18 @@ resource "aws_api_gateway_integration_response" "intResponse" {
   response_templates = {
     "application/json" = ""
   }
+}
 
+#added for second api - can delete
+resource "aws_api_gateway_integration_response" "product-response" {
+  rest_api_id = aws_api_gateway_rest_api.restAPIs.id
+  resource_id = aws_api_gateway_resource.product-apis.id
+  http_method = aws_api_gateway_method.get-product.http_method
+  status_code = aws_api_gateway_method_response.get-prod-response.status_code
+
+  response_templates = {
+    "application/json" = ""
+  }
 }
 
 resource "aws_api_gateway_deployment" "example" {
@@ -104,6 +150,8 @@ resource "aws_api_gateway_deployment" "example" {
   depends_on = [
     aws_api_gateway_integration.integration-get-health,
     aws_api_gateway_method.gethealth,
+    aws_api_gateway_integration.integration-get-product,
+    aws_api_gateway_method.get-product,
   ]
 }
 
