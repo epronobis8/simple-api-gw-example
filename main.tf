@@ -3,17 +3,15 @@ provider "aws" {
   region = var.aws_region
 }
 
-/* MULTI-LINE COMMENT
-#At run time, the code will prompt the user for the account ID. This is important for the giving the Lambda function the ARN for the APIs. 
-See the following resource: aws_lambda_permission
-*/
+
 
 locals {
   #you can add locals and reference them throughout such as tags and resource names
   owner               = "Erin"
   product_status_code = "200"
 }
-#Backend storage for our application, which is a dynamodb
+#Backend storage for our application, which is a dynamodb. 
+#The database will be empty, so please add product data with productID key
 resource "aws_dynamodb_table" "api-gateway-productapp-backend" {
   name           = var.dynamodb-name
   hash_key       = "productId"
