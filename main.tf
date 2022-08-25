@@ -8,12 +8,10 @@ provider "aws" {
 See the following resource: aws_lambda_permission
 */
 
-variable "accountId" {}
-
 locals {
   #you can add locals and reference them throughout such as tags and resource names
-  owner   = "Erin"
-  version = "v1.0"
+  owner               = "Erin"
+  product_status_code = "200"
 }
 #Backend storage for our application, which is a dynamodb
 resource "aws_dynamodb_table" "api-gateway-productapp-backend" {
@@ -33,7 +31,8 @@ resource "aws_dynamodb_table" "api-gateway-productapp-backend" {
     IaC         = "true"
   }
 }
-#Creating a public API 
+
+#Creating a public REST API 
 resource "aws_api_gateway_rest_api" "restAPIs" {
   name = var.api-name
   endpoint_configuration {
@@ -45,20 +44,81 @@ resource "aws_api_gateway_rest_api" "restAPIs" {
   }
 }
 
+#Product APIs
+resource "aws_api_gateway_resource" "product" {
+  parent_id   = aws_api_gateway_rest_api.restAPIs.root_resource_id
+  rest_api_id = aws_api_gateway_rest_api.restAPIs.id
+  path_part   = "product"
+}
+
+resource "aws_api_gateway_method" "product" {
+  for_each = {
+    "GET"    = "GET",
+    "POST"   = "POST",
+    "DELETE" = "DELETE",
+    OPTIONS  = "OPTIONS"
+    "PATCH"  = "PATCH"
+  }
+  rest_api_id   = aws_api_gateway_rest_api.restAPIs.id
+  resource_id   = aws_api_gateway_resource.product.id
+  http_method   = each.key
+  authorization = "NONE"
+}
+
+resource "aws_api_gateway_integration" "product" {
+  for_each                = aws_api_gateway_method.product
+  rest_api_id             = aws_api_gateway_rest_api.restAPIs.id
+  resource_id             = aws_api_gateway_resource.product.id
+  http_method             = each.value.http_method
+  integration_http_method = "POST"
+  type                    = "AWS_PROXY"
+  uri                     = aws_lambda_function.lambda.invoke_arn
+  request_templates = {
+    "application/json" = ""
+  }
+  depends_on = [
+    aws_api_gateway_resource.product,
+    aws_api_gateway_method.product
+  ]
+}
+
+resource "aws_api_gateway_method_response" "product-api-response" {
+  for_each    = aws_api_gateway_method.product
+  rest_api_id = aws_api_gateway_rest_api.restAPIs.id
+  resource_id = aws_api_gateway_resource.product.id
+  http_method = each.value.http_method
+  status_code = local.product_status_code
+
+  response_models = {
+    "application/json" = "Empty"
+  }
+  depends_on = [
+    aws_api_gateway_integration.product
+  ]
+}
+
+resource "aws_api_gateway_integration_response" "product-response" {
+  for_each    = aws_api_gateway_method.product
+  rest_api_id = aws_api_gateway_rest_api.restAPIs.id
+  resource_id = aws_api_gateway_resource.product.id
+  http_method = each.value.http_method
+  status_code = local.product_status_code
+
+  response_templates = {
+    "application/json" = ""
+  }
+  depends_on = [
+    aws_api_gateway_method.product
+  ]
+}
+
+#Health API
 resource "aws_api_gateway_resource" "health-api" {
   parent_id   = aws_api_gateway_rest_api.restAPIs.root_resource_id
   rest_api_id = aws_api_gateway_rest_api.restAPIs.id
   path_part   = "health"
 }
 
-#added for second api - can delete.
-resource "aws_api_gateway_resource" "product-apis" {
-  parent_id   = aws_api_gateway_rest_api.restAPIs.root_resource_id
-  rest_api_id = aws_api_gateway_rest_api.restAPIs.id
-  path_part   = "product"
-}
-
-#Creating an API to confirm health of application
 resource "aws_api_gateway_method" "gethealth" {
   rest_api_id   = aws_api_gateway_rest_api.restAPIs.id
   resource_id   = aws_api_gateway_resource.health-api.id
@@ -67,16 +127,7 @@ resource "aws_api_gateway_method" "gethealth" {
   #api_key_required = true
 }
 
-#added for second api - can delete.
-resource "aws_api_gateway_method" "get-product" {
-  rest_api_id   = aws_api_gateway_rest_api.restAPIs.id
-  resource_id   = aws_api_gateway_resource.product-apis.id
-  http_method   = "ANY"
-  authorization = "NONE"
-  #same resource ID as get, post, update, delete
-}
-
-resource "aws_api_gateway_integration" "integration-get-health" {
+resource "aws_api_gateway_integration" "gethealth" {
   rest_api_id             = aws_api_gateway_rest_api.restAPIs.id
   resource_id             = aws_api_gateway_resource.health-api.id
   http_method             = aws_api_gateway_method.gethealth.http_method
@@ -86,36 +137,19 @@ resource "aws_api_gateway_integration" "integration-get-health" {
   request_templates = {
     "application/json" = ""
   }
+  depends_on = [
+    aws_api_gateway_resource.health-api,
+    aws_api_gateway_method.gethealth
+  ]
 }
 
-resource "aws_api_gateway_integration" "integration-get-product" {
-  rest_api_id             = aws_api_gateway_rest_api.restAPIs.id
-  resource_id             = aws_api_gateway_resource.product-apis.id
-  http_method             = aws_api_gateway_method.get-product.http_method
-  integration_http_method = "POST"
-  type                    = "AWS_PROXY"
-  uri                     = aws_lambda_function.lambda.invoke_arn
-  request_templates = {
-    "application/json" = ""
-  }
-}
-#added for second api - can delete
-resource "aws_api_gateway_method_response" "get-prod-response" {
-  rest_api_id = aws_api_gateway_rest_api.restAPIs.id
-  resource_id = aws_api_gateway_resource.product-apis.id
-  http_method = aws_api_gateway_method.get-product.http_method
-  status_code = "200"
 
-  response_models = {
-    "application/json" = "Empty"
-  }
-}
 #response to return when the API is sucessful. Need to map to all other APIs
 resource "aws_api_gateway_method_response" "health-api-response" {
   rest_api_id = aws_api_gateway_rest_api.restAPIs.id
   resource_id = aws_api_gateway_resource.health-api.id
   http_method = aws_api_gateway_method.gethealth.http_method
-  status_code = "200"
+  status_code = local.product_status_code
 
   response_models = {
     "application/json" = "Empty"
@@ -126,32 +160,78 @@ resource "aws_api_gateway_integration_response" "intResponse" {
   rest_api_id = aws_api_gateway_rest_api.restAPIs.id
   resource_id = aws_api_gateway_resource.health-api.id
   http_method = aws_api_gateway_method.gethealth.http_method
-  status_code = aws_api_gateway_method_response.health-api-response.status_code
+  status_code = local.product_status_code
 
   response_templates = {
     "application/json" = ""
   }
+  depends_on = [
+    aws_api_gateway_method.gethealth
+  ]
 }
 
-#added for second api - can delete
-resource "aws_api_gateway_integration_response" "product-response" {
+#Products API
+resource "aws_api_gateway_resource" "products-api" {
+  parent_id   = aws_api_gateway_rest_api.restAPIs.root_resource_id
   rest_api_id = aws_api_gateway_rest_api.restAPIs.id
-  resource_id = aws_api_gateway_resource.product-apis.id
-  http_method = aws_api_gateway_method.get-product.http_method
-  status_code = aws_api_gateway_method_response.get-prod-response.status_code
+  path_part   = "products"
+}
 
+resource "aws_api_gateway_method" "get-products" {
+  rest_api_id   = aws_api_gateway_rest_api.restAPIs.id
+  resource_id   = aws_api_gateway_resource.products-api.id
+  http_method   = "GET"
+  authorization = "NONE"
+}
+
+resource "aws_api_gateway_integration" "integration-get-products" {
+  rest_api_id             = aws_api_gateway_rest_api.restAPIs.id
+  resource_id             = aws_api_gateway_resource.products-api.id
+  http_method             = aws_api_gateway_method.get-products.http_method
+  integration_http_method = "POST"
+  type                    = "AWS_PROXY"
+  uri                     = aws_lambda_function.lambda.invoke_arn
+  request_templates = {
+    "application/json" = ""
+  }
+  depends_on = [
+    aws_api_gateway_resource.products-api,
+    aws_api_gateway_method.get-products
+  ]
+}
+
+resource "aws_api_gateway_method_response" "products-api-response" {
+  rest_api_id = aws_api_gateway_rest_api.restAPIs.id
+  resource_id = aws_api_gateway_resource.products-api.id
+  http_method = aws_api_gateway_method.get-products.http_method
+  status_code = local.product_status_code
+
+  response_models = {
+    "application/json" = "Empty"
+  }
+}
+
+resource "aws_api_gateway_integration_response" "products-response" {
+  rest_api_id = aws_api_gateway_rest_api.restAPIs.id
+  resource_id = aws_api_gateway_resource.products-api.id
+  http_method = aws_api_gateway_method.get-products.http_method
+  status_code = local.product_status_code
   response_templates = {
     "application/json" = ""
   }
 }
+
 
 resource "aws_api_gateway_deployment" "example" {
   rest_api_id = aws_api_gateway_rest_api.restAPIs.id
+
   depends_on = [
-    aws_api_gateway_integration.integration-get-health,
+    aws_api_gateway_integration.gethealth,
+    aws_api_gateway_integration.product,
     aws_api_gateway_method.gethealth,
-    aws_api_gateway_integration.integration-get-product,
-    aws_api_gateway_method.get-product,
+    aws_api_gateway_method.product,
+    aws_api_gateway_method.get-products,
+    aws_api_gateway_integration.integration-get-products
   ]
 }
 
@@ -226,15 +306,11 @@ resource "aws_iam_role_policy" "access-policy" {
 
 
 # Lambda
-resource "aws_lambda_permission" "apigw_lambda-get-products" {
+resource "aws_lambda_permission" "apigw_lambda-get-health" {
   statement_id  = "AllowExecutionFromAPIGateway"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.lambda.function_name
   principal     = "apigateway.amazonaws.com"
-
-  # More: http://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-control-access-using-iam-policies-to-invoke-api.html
-  #source_arn = "arn:aws:execute-api:${var.aws_region}:${var.accountId}:${aws_api_gateway_rest_api.restAPIs.id}/*/*/*"
-  source_arn = "${aws_api_gateway_rest_api.restAPIs.execution_arn}/*/*"
 }
 
 data "archive_file" "zip_code" {
