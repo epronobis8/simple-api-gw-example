@@ -106,7 +106,8 @@ resource "aws_api_gateway_integration_response" "product-response" {
     "application/json" = ""
   }
   depends_on = [
-    aws_api_gateway_method.product
+    aws_api_gateway_method.product,
+    aws_api_gateway_integration.product
   ]
 }
 
@@ -164,7 +165,8 @@ resource "aws_api_gateway_integration_response" "intResponse" {
     "application/json" = ""
   }
   depends_on = [
-    aws_api_gateway_method.gethealth
+    aws_api_gateway_method.gethealth,
+    aws_api_gateway_integration.gethealth
   ]
 }
 
@@ -217,6 +219,10 @@ resource "aws_api_gateway_integration_response" "products-response" {
   response_templates = {
     "application/json" = ""
   }
+  depends_on = [
+      aws_api_gateway_method.get-products,
+      aws_api_gateway_integration.integration-get-products
+  ]
 }
 
 
@@ -342,3 +348,5 @@ resource "aws_api_gateway_method_settings" "api-logs" {
     logging_level   = "INFO"
   }
 }
+
+
