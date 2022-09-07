@@ -14,5 +14,3 @@ This API Gateway is a Regional Deployment, and thus **publicily accessible.**
 Current bug in the programming, if you try to make a GET call to /product without adding a querying parameter for the productID, you will get a 404 error. 
 
 These APIs do not require API keys.
-
-Terraform returned an error when trying to leverage the **path** parameter for aws_api_gateway_resource.
