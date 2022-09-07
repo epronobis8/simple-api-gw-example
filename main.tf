@@ -61,6 +61,8 @@ resource "aws_api_gateway_method" "product" {
   resource_id   = aws_api_gateway_resource.product.id
   http_method   = each.key
   authorization = "NONE"
+  # added 9/7
+  api_key_required = true
 }
 
 resource "aws_api_gateway_integration" "product" {
@@ -349,4 +351,7 @@ resource "aws_api_gateway_method_settings" "api-logs" {
   }
 }
 
-
+# added 9/7 - api key
+resource "aws_api_gateway_api_key" "MyDemoApiKey" {
+  name = "demo-api-gateway-product-key"
+}
