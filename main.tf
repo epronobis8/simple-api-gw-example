@@ -61,8 +61,7 @@ resource "aws_api_gateway_method" "product" {
   resource_id   = aws_api_gateway_resource.product.id
   http_method   = each.key
   authorization = "NONE"
-  # added 9/7
-  api_key_required = true
+  # api_key_required = true
 }
 
 resource "aws_api_gateway_integration" "product" {
