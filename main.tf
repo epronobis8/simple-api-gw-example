@@ -178,6 +178,7 @@ resource "aws_api_gateway_resource" "products-api" {
   path_part   = "products"
 }
 
+/*
 resource "aws_api_gateway_method" "get-products" {
   rest_api_id   = aws_api_gateway_rest_api.restAPIs.id
   resource_id   = aws_api_gateway_resource.products-api.id
@@ -221,11 +222,69 @@ resource "aws_api_gateway_integration_response" "products-response" {
     "application/json" = ""
   }
   depends_on = [
-      aws_api_gateway_method.get-products,
-      aws_api_gateway_integration.integration-get-products
+    aws_api_gateway_method.get-products,
+    aws_api_gateway_integration.integration-get-products
+  ]
+}
+*/
+
+# Sample nested paths 
+resource "aws_api_gateway_resource" "products-type-api" {
+  parent_id   = aws_api_gateway_resource.products-api.id
+  rest_api_id = aws_api_gateway_rest_api.restAPIs.id
+  path_part   = "type"
+}
+
+resource "aws_api_gateway_method" "getproducttype" {
+  rest_api_id   = aws_api_gateway_rest_api.restAPIs.id
+  resource_id   = aws_api_gateway_resource.products-type-api.id
+  http_method   = "GET"
+  authorization = "NONE"
+  #api_key_required = true
+}
+
+resource "aws_api_gateway_integration" "integration-get-product-type" {
+  rest_api_id             = aws_api_gateway_rest_api.restAPIs.id
+  resource_id             = aws_api_gateway_resource.products-type-api.id
+  http_method             = aws_api_gateway_method.getproducttype.http_method
+  integration_http_method = "POST"
+  type                    = "AWS_PROXY"
+  uri                     = aws_lambda_function.lambda.invoke_arn
+  request_templates = {
+    "application/json" = ""
+  }
+  depends_on = [
+    aws_api_gateway_resource.products-type-api,
+    aws_api_gateway_method.getproducttype
   ]
 }
 
+resource "aws_api_gateway_method_response" "products-type-api-response" {
+  rest_api_id = aws_api_gateway_rest_api.restAPIs.id
+  resource_id = aws_api_gateway_resource.products-type-api.id
+  http_method = aws_api_gateway_method.getproducttype.http_method
+  status_code = local.product_status_code
+
+  response_models = {
+    "application/json" = "Empty"
+  }
+}
+
+resource "aws_api_gateway_integration_response" "products-type-response" {
+  rest_api_id = aws_api_gateway_rest_api.restAPIs.id
+  resource_id = aws_api_gateway_resource.products-type-api.id
+  http_method = aws_api_gateway_method.getproducttype.http_method
+  status_code = local.product_status_code
+  response_templates = {
+    "application/json" = ""
+  }
+  depends_on = [
+    aws_api_gateway_method.getproducttype,
+    aws_api_gateway_integration.integration-get-product-type
+  ]
+}
+
+# End sample nested paths
 
 resource "aws_api_gateway_deployment" "example" {
   rest_api_id = aws_api_gateway_rest_api.restAPIs.id
@@ -235,8 +294,11 @@ resource "aws_api_gateway_deployment" "example" {
     aws_api_gateway_integration.product,
     aws_api_gateway_method.gethealth,
     aws_api_gateway_method.product,
-    aws_api_gateway_method.get-products,
-    aws_api_gateway_integration.integration-get-products
+    aws_api_gateway_method.getproducttype,
+    aws_api_gateway_method.getproducttype,
+    aws_api_gateway_integration.integration-get-product-type
+    #aws_api_gateway_method.get-products
+    #aws_api_gateway_integration.integration-get-products
   ]
 }
 
